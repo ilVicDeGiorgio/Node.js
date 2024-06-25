@@ -10,5 +10,5 @@ app.use(express.json());
 app.use("/", planetRouter);
 
 app.listen(port, () => {
-  console.log(`Server in ascolto sulla porta ${port}`);
+  console.log(`Server in ascolto sulla porta http://localhost:${port}`);
 });
