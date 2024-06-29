@@ -7,7 +7,8 @@ const setupDb = async () => {
     await db.none(`
             CREATE TABLE planets (
                 id SERIAL NOT NULL PRIMARY KEY,
-                name TEXT NOT NULL
+                name TEXT NOT NULL,
+                image TEXT
             );
         `);
     await db.none("INSERT INTO planets (name) VALUES ($1), ($2);", [
@@ -16,7 +17,7 @@ const setupDb = async () => {
     ]);
     console.log("Database setup complete.");
   } catch (err) {
-    console.error("Error setting up the database:", err);
+    console.error("Errore durante la configurazione del database:", err);
   }
 };
 
