@@ -3,17 +3,27 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("../db");
 const dotenv = require("dotenv");
+const passport = require("passport");
 
 dotenv.config();
 
 const router = express.Router();
+
+// Middleware di autorizzazione
+const authorize = (req, res, next) => {
+  passport.authenticate("jwt", { session: false }, (err, user, info) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(401).json({ msg: "Unauthorized" });
+    req.user = user;
+    next();
+  })(req, res, next);
+};
 
 // Registrazione utente
 router.post("/signup", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Controlla se l'utente esiste già
     const userExists = await db.query(
       "SELECT * FROM users WHERE username = $1",
       [username]
@@ -22,10 +32,8 @@ router.post("/signup", async (req, res) => {
       return res.status(400).json({ msg: "User already exists" });
     }
 
-    // Hash della password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Inserisci l'utente nel database
     await db.query(
       "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *",
       [username, hashedPassword]
@@ -42,7 +50,6 @@ router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // Verifica se l'utente esiste
     const result = await db.query("SELECT * FROM users WHERE username = $1", [
       username,
     ]);
@@ -53,23 +60,19 @@ router.post("/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    // Verifica la password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({ msg: "Invalid credentials" });
     }
 
-    // Crea il payload per il token JWT
     const payload = {
       id: user.id,
       username: user.username,
     };
 
-    // Firma il token
     const token = jwt.sign(payload, process.env.SECRET, { expiresIn: "1h" });
 
-    // Memorizza il token nel database
     await db.query("UPDATE users SET token = $1 WHERE id = $2", [
       token,
       user.id,
@@ -80,6 +83,18 @@ router.post("/login", async (req, res) => {
       id: user.id,
       username: user.username,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logout utente
+router.get("/logout", authorize, async (req, res) => {
+  try {
+    await db.query("UPDATE users SET token = NULL WHERE id = $1", [
+      req.user.id,
+    ]);
+    res.json({ msg: "Logout successful" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
